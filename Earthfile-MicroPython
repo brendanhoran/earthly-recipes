@@ -11,7 +11,6 @@ RUN apt-get update && \
 # Download ESP-IDF framework
 RUN git clone -b $ESP_IDF_VERSION --recursive https://github.com/espressif/esp-idf.git
 
-#RUN cd esp-idf && git checkout v4.2
 RUN cd esp-idf && git submodule update --init --recursive
 RUN cd esp-idf && ./install.sh
 # This sed is needed to remove the windows only 'file://' refrence, otherwise pip install fails
@@ -23,6 +22,7 @@ SAVE ARTIFACT /esp-idf/components/esptool_py/esptool/esptool.py AS LOCAL artifac
 
 # Export a bunch of esp-idf settings, needed for buiding
 ARG IDF_PATH="/esp-idf"
+# Find a better way to export Python path based on version 
 ARG IDF_PYTHON_ENV_PATH="/root/.espressif/python_env/idf4.2_py3.9_env"
 ARG IDF_TOOLS_EXPORT_CMD="/esp-idf/export.sh"
 ARG IDF_TOOLS_INSTALL_CMD="/esp-idf/install.sh"
