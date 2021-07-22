@@ -5,8 +5,8 @@ FROM python:3
 ARG ESP_IDF_VERSION = v4.2
 
 # Update apt and install build time dependences
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y cmake
+RUN apt update && \
+    DEBIAN_FRONTEND=noninteractive apt install -y cmake
 
 # Download ESP-IDF framework
 RUN git clone -b $ESP_IDF_VERSION --recursive https://github.com/espressif/esp-idf.git
@@ -33,6 +33,12 @@ ENV PATH="/esp-idf/tools/:/root/.espressif/tools/xtensa-esp32-elf/esp-2020r3-8.4
 RUN git clone https://github.com/micropython/micropython.git
 RUN cd micropython && make -C mpy-cross
 RUN cd micropython/ports/esp32 && make submodules
+
+# Copy main.py and modules into Micropython build 
+# main.py and the modules directory must be top level of your micropython project repo
+# They must esist, otherwise the build will fail
+COPY main.py /micropython/ports/esp32/
+COPY modules/ /micropython/ports/esp32/modules/
 
 firmware:
     RUN cd micropython/ports/esp32 && make
