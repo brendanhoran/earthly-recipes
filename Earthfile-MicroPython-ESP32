@@ -1,3 +1,10 @@
+# This Eathfile aims to built the latest MicroPython firmware based on a supported
+# Tag/version of the ESP-IDF framework.
+# The Local steps are needed to flash the ESP32 device as you can not pass a USB
+# device into an Eathfile yet.
+# You will still need a supported Python setup to use the local steps.
+# This won't need the full ESP-IDF or Micropython repo's on your host machine.
+
 # Use Python 3 base image
 FROM python:3
 
