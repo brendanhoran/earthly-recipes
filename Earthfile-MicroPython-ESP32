@@ -47,6 +47,7 @@ RUN cd micropython/ports/esp32 && make submodules
 COPY main.py /micropython/ports/esp32/
 COPY modules/ /micropython/ports/esp32/modules/
 
+# This target builds the firmware. That includes the bootloader, and the Micropython bin.
 firmware:
     RUN cd micropython/ports/esp32 && make
     # Save artifacts from building the ESP32 firmware 
@@ -54,8 +55,9 @@ firmware:
     SAVE ARTIFACT /micropython/ports/esp32/build-GENERIC/partition_table/* AS LOCAL artifacts/
     SAVE ARTIFACT /micropython/ports/esp32/build-GENERIC/micropython.bin AS LOCAL artifacts/
 
+# This target flashes the artifacts generated from the above step
 flash:
-    LOCALLY
+    LOCALLY +firmware
     # Define build arg for the serial port (Dont want this in global scope as it will cause layer rebuilds)
     ARG SERIAL_PORT
     # This assumes your host enviroment is able to run 'esptool.py' nativly 
@@ -64,6 +66,7 @@ flash:
         --chip esp32  write_flash --flash_mode dio --flash_size detect --flash_freq 40m 0x1000 \
          artifacts/bootloader.bin 0x8000 artifacts/partition-table.bin 0x10000 artifacts/micropython.bin
 
+# This target erases the ESP32
 erase-flash:
     LOCALLY
     # Define build arg for the serial port (Dont want this in global scope as it will cause layer rebuilds)
