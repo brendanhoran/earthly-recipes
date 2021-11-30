@@ -44,7 +44,6 @@ firmware:
     # Can't set "WORKDIR" as this effects the idf build system
     RUN cd build && /opt/esp/idf/tools/idf.py fullclean
     RUN cd build && /opt/esp/idf/tools/idf.py build
-    RUN ls -la build/*
     SAVE ARTIFACT build/build/*.bin* AS LOCAL artifacts/
     SAVE ARTIFACT build/build/partition_table/*.bin* AS LOCAL artifacts/
     SAVE ARTIFACT build/build/bootloader/*.bin  AS LOCAL artifacts/
