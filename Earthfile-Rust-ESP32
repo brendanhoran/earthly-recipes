@@ -1,0 +1,72 @@
+# This Eathfile aims to built the latest rustc firmware
+# The Local steps are needed to flash the ESP32 device as you can not pass a USB
+# device into an Eathfile yet.
+# You will still need a supported Python setup to use the local steps.
+# This won't need the full ESP-IDF or rustc/llvm repo's on your host machine.
+
+# Use the Espressive IDF image that contains a prebuild rustc and LLVM
+FROM espressif/idf-rust
+
+RUN apt update && \
+    DEBIAN_FRONTEND=noninteractive apt install -y \
+    cmake
+
+# Exports needed for esp-idf, rust and cargo
+ARG LC_ALL=C.UTF-8
+ARG LANG=C.UTF-8
+ARG RUSTUP_HOME=/opt/rustup
+ARG CARGO_HOME=/opt/cargo
+ARG IDF_PATH="/opt/esp/idf"
+ARG IDF_TOOLS_EXPORT_CMD="/opt/esp/idf/export.sh"
+ARG IDF_TOOLS_INSTALL_CMD="/opt/esp/idf/install.sh"
+
+# Find a better way to export Python path based on version
+ARG IDF_PYTHON_ENV_PATH="/root/.espressif/python_env/idf4.3_py3.10_env"
+
+# Hard code the esp version here too, same issue as with micropython build
+ENV PATH="/opt/cargo/bin:/opt/rustup/bin:/opt/esp/tools/xtensa-esp32-elf-clang/esp-12.0.1-20210914-x86_64-unknown-linux-gnu/bin/:$PATH"
+
+# Upstream idf-rustc is still using crosstool-ng esp-2021r1, but the build expects esp-2021r2
+# not a huge issue so ignore this for noa via the following enviroment variable export.
+ENV IDF_MAINTAINER = 1
+
+# This sed is needed to remove the windows only 'file://' refrence, otherwise pip install fails
+# https://github.com/espressif/esp-idf/blob/8e3e65a47b7d9b5dc4f52eb56660a748fda1884e/requirements.txt#L38
+RUN sed -i '/^file/d' /opt/esp/idf/requirements.txt
+RUN pip3 install -r /opt/esp/idf/requirements.txt
+
+# The only thing we need to save is the flash tool, everything else stays in image/layer
+SAVE ARTIFACT /opt/esp/idf/components/esptool_py/esptool/esptool.py AS LOCAL artifacts/
+
+firmware:
+    # Directory that your code should be found in
+    COPY build/ build
+    # Can't set "WORKDIR" as this effects the idf build system
+    RUN cd build && /opt/esp/idf/tools/idf.py fullclean
+    RUN cd build && /opt/esp/idf/tools/idf.py build
+    RUN ls -la build/*
+    SAVE ARTIFACT build/build/*.bin* AS LOCAL artifacts/
+    SAVE ARTIFACT build/build/partition_table/*.bin* AS LOCAL artifacts/
+    SAVE ARTIFACT build/build/bootloader/*.bin  AS LOCAL artifacts/
+
+
+# This target flashes the artifacts generated from the above step
+flash:
+    LOCALLY
+    # Define build arg for the serial port (Dont want this in global scope as it will cause layer rebuilds)
+    ARG SERIAL_PORT
+    # Pass in the name of the binary to flash, this will be dependent on your Rust program and what it outputs
+    # Boot loader and partition table always have a constant name
+    ARG BUILD_BINARY
+    # This assumes your host enviroment is able to run 'esptool.py' nativly 
+    # No other way around this yet, as we can not pass '--device' docker style syntax into Earthly 
+    RUN artifacts/esptool.py p $SERIAL_PORT -b 460800 --before default_reset --after hard_reset \
+        --chip esp32  write_flash --flash_mode dio --flash_size detect --flash_freq 40m 0x1000 \
+        artifacts/bootloader.bin 0x8000 artifacts/partition-table.bin 0x10000 artifacts/$BUILD_BINARY
+
+# This target erases the ESP32
+erase-flash:
+    LOCALLY
+    # Define build arg for the serial port (Dont want this in global scope as it will cause layer rebuilds)
+    ARG SERIAL_PORT
+    RUN artifacts/esptool.py --port $SERIAL_PORT erase_flash
